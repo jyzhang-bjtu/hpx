@@ -11,8 +11,7 @@
 #include <hpx/parallel/util/prefetching.hpp>
 #include <hpx/util/lightweight_test.hpp>
 
-#include <boost/range/functions.hpp>
-
+#include <iterator>
 #include <numeric>
 #include <vector>
 
@@ -44,7 +43,7 @@ void test_for_each_prefetching(ExPolicy && policy, IteratorTag)
 
     // verify values
     std::size_t count = 0;
-    std::for_each(boost::begin(c), boost::end(c),
+    std::for_each(std::begin(c), std::end(c),
         [&count](double v) -> void
         {
             HPX_TEST_EQ(v, 42.1);
