@@ -45,13 +45,8 @@ namespace hpx { namespace serialization {
             void register_factory_function(const std::string& type_name,
                 ctor_t ctor)
             {
-#if !defined(HPX_GCC_VERSION) || HPX_GCC_VERSION >= 408000
                 typename_to_ctor.emplace(type_name, ctor);
-#else
-                typename_to_ctor.insert(
-                    typename_to_ctor_t::value_type(type_name, ctor)
-                );
-#endif
+
                 // populate cache
                 typename_to_id_t::const_iterator it =
                     typename_to_id.find(type_name);
@@ -62,13 +57,8 @@ namespace hpx { namespace serialization {
             void register_typename(const std::string& type_name,
                 boost::uint32_t id)
             {
-#if !defined(HPX_GCC_VERSION) || HPX_GCC_VERSION >= 408000
                 typename_to_id.emplace(type_name, id);
-#else
-                typename_to_id.insert(
-                    typename_to_id_t::value_type(type_name, id)
-                );
-#endif
+
                 // populate cache
                 typename_to_ctor_t::const_iterator it =
                     typename_to_ctor.find(type_name);
