@@ -10,8 +10,8 @@
 #include <hpx/runtime/agas/interface.hpp>
 
 #include <boost/assign/std/vector.hpp>
-#include <boost/chrono.hpp>
 
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -25,7 +25,7 @@ using boost::program_options::value;
 using hpx::init;
 using hpx::finalize;
 
-using boost::chrono::milliseconds;
+using std::chrono::milliseconds;
 
 using hpx::naming::id_type;
 using hpx::naming::get_management_type_name;

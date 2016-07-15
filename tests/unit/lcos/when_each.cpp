@@ -9,6 +9,7 @@
 #include <hpx/include/threads.hpp>
 #include <hpx/util/lightweight_test.hpp>
 
+#include <chrono>
 #include <deque>
 #include <list>
 #include <memory>
@@ -22,7 +23,7 @@
 template<unsigned id>
 unsigned make_unsigned_slowly()
 {
-    hpx::this_thread::sleep_for(boost::chrono::milliseconds(100));
+    hpx::this_thread::sleep_for(std::chrono::milliseconds(100));
     return id;
 }
 
@@ -62,11 +63,11 @@ void test_when_each_from_list()
     for (unsigned j = 0; j < count; ++j)
     {
         futures1.push_back(
-            hpx::make_ready_future_after(boost::chrono::milliseconds(100), j)
+            hpx::make_ready_future_after(std::chrono::milliseconds(100), j)
         );
 
         futures2.push_back(
-            hpx::make_ready_future_after(boost::chrono::milliseconds(100), j)
+            hpx::make_ready_future_after(std::chrono::milliseconds(100), j)
         );
     }
 
@@ -123,11 +124,11 @@ void test_when_each_from_list_iterators()
     for (unsigned j = 0; j < count; ++j)
     {
         futures1.push_back(
-            hpx::make_ready_future_after(boost::chrono::milliseconds(100), j)
+            hpx::make_ready_future_after(std::chrono::milliseconds(100), j)
         );
 
         futures2.push_back(
-            hpx::make_ready_future_after(boost::chrono::milliseconds(100), j)
+            hpx::make_ready_future_after(std::chrono::milliseconds(100), j)
         );
     }
 
@@ -188,11 +189,11 @@ void test_when_each_n_from_list_iterators()
     for (unsigned j = 0; j < count; ++j)
     {
         futures1.push_back(
-            hpx::make_ready_future_after(boost::chrono::milliseconds(100), j)
+            hpx::make_ready_future_after(std::chrono::milliseconds(100), j)
         );
 
         futures2.push_back(
-            hpx::make_ready_future_after(boost::chrono::milliseconds(100), j)
+            hpx::make_ready_future_after(std::chrono::milliseconds(100), j)
         );
     }
 
