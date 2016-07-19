@@ -26,138 +26,6 @@
 namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
 {
     ///////////////////////////////////////////////////////////////////////////
-    // find
-    namespace detail
-    {
-        /// \cond NOINTERNAL
-        template <typename InIter>
-        struct find : public detail::algorithm<find<InIter>, InIter>
-        {
-            find()
-                : find::algorithm("find")
-            {}
-
-            template <typename ExPolicy, typename T>
-            static InIter
-            sequential(ExPolicy, InIter first, InIter last, const T& val)
-            {
-                return std::find(first, last, val);
-            }
-
-            template <typename ExPolicy, typename T>
-            static typename util::detail::algorithm_result<
-                ExPolicy, InIter
-            >::type
-            parallel(ExPolicy && policy, InIter first, InIter last,
-                T const& val)
-            {
-                typedef util::detail::algorithm_result<ExPolicy, InIter> result;
-                typedef typename std::iterator_traits<InIter>::value_type type;
-                typedef typename std::iterator_traits<InIter>::difference_type
-                    difference_type;
-
-                difference_type count = std::distance(first, last);
-                if (count <= 0)
-                    return result::get(std::move(last));
-
-                util::cancellation_token<std::size_t> tok(count);
-
-                return util::partitioner<ExPolicy, InIter, void>::
-                    call_with_index(
-                        std::forward<ExPolicy>(policy), first, count, 1,
-                        [val, tok](std::size_t base_idx, InIter it,
-                            std::size_t part_size) mutable
-                        {
-                            util::loop_idx_n(
-                                base_idx, it, part_size, tok,
-                                [&val, &tok](type& v, std::size_t i)
-                                {
-                                    if (v == val)
-                                        tok.cancel(i);
-                                });
-                        },
-                        [=](std::vector<hpx::future<void> > &&) mutable -> InIter
-                        {
-                            difference_type find_res =
-                                static_cast<difference_type>(tok.get_data());
-                            if(find_res != count)
-                                std::advance(first, find_res);
-                            else
-                                first = last;
-
-                            return std::move(first);
-                        });
-            }
-        };
-        /// \endcond
-    }
-
-    /// Returns the first element in the range [first, last) that is equal
-    /// to value
-    ///
-    /// \note   Complexity: At most last - first
-    ///         applications of the operator==().
-    ///
-    /// \tparam ExPolicy    The type of the execution policy to use (deduced).
-    ///                     It describes the manner in which the execution
-    ///                     of the algorithm may be parallelized and the manner
-    ///                     in which it executes the assignments.
-    /// \tparam InIter      The type of the source iterators used for the
-    ///                     first range (deduced).
-    ///                     This iterator type must meet the requirements of an
-    ///                     input iterator.
-    /// \tparam T           The type of the value to find (deduced).
-    ///
-    /// \param policy       The execution policy to use for the scheduling of
-    ///                     the iterations.
-    /// \param first        Refers to the beginning of the sequence of elements
-    ///                     of the first range the algorithm will be applied to.
-    /// \param last         Refers to the end of the sequence of elements of
-    ///                     the first range the algorithm will be applied to.
-    /// \param val          the value to compare the elements to
-    ///
-    /// The comparison operations in the parallel \a find algorithm invoked
-    /// with an execution policy object of type \a sequential_execution_policy
-    /// execute in sequential order in the calling thread.
-    ///
-    /// The comparison operations in the parallel \a find algorithm invoked
-    /// with an execution policy object of type \a parallel_execution_policy
-    /// or \a parallel_task_execution_policy are permitted to execute in an unordered
-    /// fashion in unspecified threads, and indeterminately sequenced
-    /// within each thread.
-    ///
-    /// \returns  The \a find algorithm returns a \a hpx::future<InIter> if the
-    ///           execution policy is of type
-    ///           \a sequential_task_execution_policy or
-    ///           \a parallel_task_execution_policy and
-    ///           returns \a InIter otherwise.
-    ///           The \a find algorithm returns the first element in the range
-    ///           [first,last) that is equal to \a val.
-    ///           If no such element in the range of [first,last) is equal to
-    ///           \a val, then the algorithm returns \a last.
-    ///
-    template <typename ExPolicy, typename InIter, typename T>
-    inline typename std::enable_if<
-        is_execution_policy<ExPolicy>::value,
-        typename util::detail::algorithm_result<ExPolicy, InIter>::type
-    >::type
-    find(ExPolicy && policy, InIter first, InIter last, T const& val)
-    {
-        static_assert(
-            (hpx::traits::is_input_iterator<InIter>::value),
-            "Requires at least input iterator.");
-
-        typedef std::integral_constant<bool,
-                is_sequential_execution_policy<ExPolicy>::value ||
-               !hpx::traits::is_forward_iterator<InIter>::value
-            > is_seq;
-
-        return detail::find<InIter>().call(
-            std::forward<ExPolicy>(policy), is_seq(),
-            first, last, val);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
     // find_if
     namespace detail
     {
@@ -165,8 +33,8 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
         template <typename InIter>
         struct find_if : public detail::algorithm<find_if<InIter>, InIter>
         {
-            find_if()
-                : find_if::algorithm("find_if")
+            find_if(char const* const name = "find_if")
+              : find_if::algorithm(name)
             {}
 
             template <typename ExPolicy, typename F>
@@ -308,22 +176,18 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
     {
         /// \cond NOINTERNAL
         template <typename InIter>
-        struct find_if_not : public detail::algorithm<find_if_not<InIter>, InIter>
+        struct find_if_not : public find_if<InIter>
         {
             find_if_not()
-                : find_if_not::algorithm("find_if_not")
+              : find_if("find_if_not")
             {}
 
             template <typename ExPolicy, typename F>
             static InIter
             sequential(ExPolicy, InIter first, InIter last, F && f)
             {
-                for (; first != last; ++first) {
-                    if (!f(*first)) {
-                        return first;
-                    }
-                }
-                return last;
+                negate<typename std::decay<F>::type> pred(f);
+                return find_if::sequential(first, last, pred);
             }
 
             template <typename ExPolicy, typename FwdIter, typename F>
@@ -332,42 +196,9 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
             >::type
             parallel(ExPolicy && policy, FwdIter first, FwdIter last, F && f)
             {
-                typedef util::detail::algorithm_result<ExPolicy, FwdIter> result;
-                typedef typename std::iterator_traits<InIter>::value_type type;
-                typedef typename std::iterator_traits<InIter>::difference_type
-                    difference_type;
-
-                difference_type count = std::distance(first, last);
-                if (count <= 0)
-                    return result::get(std::move(last));
-
-                util::cancellation_token<std::size_t> tok(count);
-
-                return util::partitioner<ExPolicy, FwdIter, void>::
-                    call_with_index(
-                        std::forward<ExPolicy>(policy), first, count, 1,
-                        [f, tok](std::size_t base_idx, FwdIter it,
-                            std::size_t part_size) mutable
-                        {
-                            util::loop_idx_n(
-                                base_idx, it, part_size, tok,
-                                [&f, &tok](type& v, std::size_t i)
-                            {
-                                if (!f(v))
-                                    tok.cancel(i);
-                            });
-                        },
-                        [=](std::vector<hpx::future<void> > &&) mutable -> FwdIter
-                        {
-                            difference_type find_res =
-                                static_cast<difference_type>(tok.get_data());
-                            if(find_res != count)
-                                std::advance(first, find_res);
-                            else
-                                first = last;
-
-                            return std::move(first);
-                        });
+                negate<typename std::decay<F>::type> pred(f);
+                return find_if::parallel(
+                    std::forward<ExPolicy>(policy), first, last, pred);
             }
         };
         /// \endcond
@@ -450,6 +281,105 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
         return detail::find_if_not<InIter>().call(
             std::forward<ExPolicy>(policy), is_seq(),
             first, last, std::forward<F>(f));
+    }
+    ///////////////////////////////////////////////////////////////////////////
+    // find
+    namespace detail
+    {
+        /// \cond NOINTERNAL
+        template <typename InIter>
+        struct find : public find_if<InIter>
+        {
+            find()
+              : find_if("find")
+            {}
+
+            template <typename ExPolicy, typename T>
+            static InIter
+            sequential(ExPolicy, InIter first, InIter last, const T& val)
+            {
+                with_value<T> pred(val);
+                return find_if::sequential(first, last, pred);
+            }
+
+            template <typename ExPolicy, typename T>
+            static typename util::detail::algorithm_result<
+                ExPolicy, InIter
+            >::type
+            parallel(ExPolicy && policy, InIter first, InIter last,
+                T const& val)
+            {
+                with_value<T> pred(val);
+                return find_if::parallel(
+                    std::forward<ExPolicy>(policy), first, last, pred);
+            }
+        };
+        /// \endcond
+    }
+
+    /// Returns the first element in the range [first, last) that is equal
+    /// to value
+    ///
+    /// \note   Complexity: At most last - first
+    ///         applications of the operator==().
+    ///
+    /// \tparam ExPolicy    The type of the execution policy to use (deduced).
+    ///                     It describes the manner in which the execution
+    ///                     of the algorithm may be parallelized and the manner
+    ///                     in which it executes the assignments.
+    /// \tparam InIter      The type of the source iterators used for the
+    ///                     first range (deduced).
+    ///                     This iterator type must meet the requirements of an
+    ///                     input iterator.
+    /// \tparam T           The type of the value to find (deduced).
+    ///
+    /// \param policy       The execution policy to use for the scheduling of
+    ///                     the iterations.
+    /// \param first        Refers to the beginning of the sequence of elements
+    ///                     of the first range the algorithm will be applied to.
+    /// \param last         Refers to the end of the sequence of elements of
+    ///                     the first range the algorithm will be applied to.
+    /// \param val          the value to compare the elements to
+    ///
+    /// The comparison operations in the parallel \a find algorithm invoked
+    /// with an execution policy object of type \a sequential_execution_policy
+    /// execute in sequential order in the calling thread.
+    ///
+    /// The comparison operations in the parallel \a find algorithm invoked
+    /// with an execution policy object of type \a parallel_execution_policy
+    /// or \a parallel_task_execution_policy are permitted to execute in an unordered
+    /// fashion in unspecified threads, and indeterminately sequenced
+    /// within each thread.
+    ///
+    /// \returns  The \a find algorithm returns a \a hpx::future<InIter> if the
+    ///           execution policy is of type
+    ///           \a sequential_task_execution_policy or
+    ///           \a parallel_task_execution_policy and
+    ///           returns \a InIter otherwise.
+    ///           The \a find algorithm returns the first element in the range
+    ///           [first,last) that is equal to \a val.
+    ///           If no such element in the range of [first,last) is equal to
+    ///           \a val, then the algorithm returns \a last.
+    ///
+    template <typename ExPolicy, typename InIter, typename T>
+    inline typename std::enable_if<
+        is_execution_policy<ExPolicy>::value,
+        typename util::detail::algorithm_result<ExPolicy, InIter>::type
+    >::type
+    find(ExPolicy && policy, InIter first, InIter last, T const& val)
+    {
+        static_assert(
+            (hpx::traits::is_input_iterator<InIter>::value),
+            "Requires at least input iterator.");
+
+        typedef std::integral_constant<bool,
+                is_sequential_execution_policy<ExPolicy>::value ||
+               !hpx::traits::is_forward_iterator<InIter>::value
+            > is_seq;
+
+        return detail::find<InIter>().call(
+            std::forward<ExPolicy>(policy), is_seq(),
+            first, last, val);
     }
 
     ///////////////////////////////////////////////////////////////////////////

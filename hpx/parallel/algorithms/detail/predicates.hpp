@@ -256,6 +256,42 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1) { namespace detail
             return (std::max)(t1, t2);
         }
     };
+
+    ///////////////////////////////////////////////////////////////////////////
+    template <typename F>
+    struct negate
+    {
+        explicit negate(F const& f)
+          : f_(f)
+        {}
+
+        template <typename T>
+        bool operator()(T const& v) const
+        {
+
+            return !f(v);
+        }
+
+    private:
+        F f_;
+    };
+
+    ///////////////////////////////////////////////////////////////////////////
+    template <typename T>
+    struct with_value
+    {
+        explicit with_value(T const& value)
+          : value_(value)
+        {}
+
+        bool operator()(T const& v) const
+        {
+            return v == value_;
+        }
+
+    private:
+        T value_;
+    };
 }}}}
 
 #endif

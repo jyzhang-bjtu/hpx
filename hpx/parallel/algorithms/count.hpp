@@ -30,159 +30,6 @@
 namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
 {
     ///////////////////////////////////////////////////////////////////////////
-    // count
-    namespace detail
-    {
-        /// \cond NOINTERNAL
-        template <typename Value>
-        struct count
-          : public detail::algorithm<count<Value>, Value>
-        {
-            typedef Value difference_type;
-
-            count()
-              : count::algorithm("count")
-            {}
-
-            template <typename ExPolicy, typename Iter, typename T>
-            static difference_type
-            sequential(ExPolicy, Iter first, Iter last, T const& value)
-            {
-                return std::count(first, last, value);
-            }
-
-            template <typename ExPolicy, typename Iter, typename T>
-            static typename util::detail::algorithm_result<
-                ExPolicy, difference_type
-            >::type
-            parallel(ExPolicy && policy, Iter first, Iter last,
-                T const& value)
-            {
-                if (first == last)
-                {
-                    return util::detail::algorithm_result<
-                            ExPolicy, difference_type
-                        >::get(0);
-                }
-
-                return util::partitioner<ExPolicy, difference_type>::call(
-                    std::forward<ExPolicy>(policy),
-                    first, std::distance(first, last),
-                    [value](Iter part_begin, std::size_t part_size) -> difference_type
-                    {
-                        difference_type ret = 0;
-                        util::loop_n(part_begin, part_size,
-                            [&value, &ret](Iter const& curr)
-                            {
-                                if (value == *curr)
-                                    ++ret;
-                            });
-                        return ret;
-                    },
-                    hpx::util::unwrapped(
-                        [](std::vector<difference_type>&& results)
-                        {
-                            return util::accumulate_n(
-                                boost::begin(results), boost::size(results),
-                                difference_type(0), std::plus<difference_type>());
-                        }));
-            }
-        };
-
-        template <typename ExPolicy, typename InIter, typename T>
-        inline typename util::detail::algorithm_result<
-            ExPolicy, typename std::iterator_traits<InIter>::difference_type
-        >::type
-        count_(ExPolicy && policy, InIter first, InIter last, T const& value,
-            std::false_type)
-        {
-            typedef std::integral_constant<bool,
-                    parallel::is_sequential_execution_policy<ExPolicy>::value ||
-                   !hpx::traits::is_forward_iterator<InIter>::value
-                > is_seq;
-
-            typedef typename std::iterator_traits<InIter>::difference_type
-                difference_type;
-
-            return detail::count<difference_type>().call(
-                std::forward<ExPolicy>(policy), is_seq(), first, last, value);
-        }
-
-        // forward declare the segmented version of this algorithm
-        template <typename ExPolicy, typename InIter, typename T>
-        typename util::detail::algorithm_result<
-            ExPolicy, typename std::iterator_traits<InIter>::difference_type
-        >::type
-        count_(ExPolicy&& policy, InIter first, InIter last, T const& value,
-            std::true_type);
-
-        /// \endcond
-    }
-
-    /// Returns the number of elements in the range [first, last) satisfying
-    /// a specific criteria. This version counts the elements that are equal to
-    /// the given \a value.
-    ///
-    /// \note   Complexity: Performs exactly \a last - \a first comparisons.
-    ///
-    /// \tparam ExPolicy    The type of the execution policy to use (deduced).
-    ///                     It describes the manner in which the execution
-    ///                     of the algorithm may be parallelized and the manner
-    ///                     in which it executes the comparisons.
-    /// \tparam InIter      The type of the source iterators used (deduced).
-    ///                     This iterator type must meet the requirements of an
-    ///                     input iterator.
-    /// \tparam T           The type of the value to search for (deduced).
-    ///
-    /// \param policy       The execution policy to use for the scheduling of
-    ///                     the iterations.
-    /// \param first        Refers to the beginning of the sequence of elements
-    ///                     the algorithm will be applied to.
-    /// \param last         Refers to the end of the sequence of elements the
-    ///                     algorithm will be applied to.
-    /// \param value        The value to search for.
-    ///
-    /// The comparisons in the parallel \a count algorithm invoked with
-    /// an execution policy object of type \a sequential_execution_policy
-    /// execute in sequential order in the calling thread.
-    ///
-    /// \note The comparisons in the parallel \a count algorithm invoked with
-    ///       an execution policy object of type \a parallel_execution_policy or
-    ///       \a parallel_task_execution_policy are permitted to execute in an unordered
-    ///       fashion in unspecified threads, and indeterminately sequenced
-    ///       within each thread.
-    ///
-    /// \returns  The \a count algorithm returns a
-    ///           \a hpx::future<difference_type> if the execution policy is of
-    ///           type
-    ///           \a sequential_task_execution_policy or
-    ///           \a parallel_task_execution_policy and
-    ///           returns \a difference_type otherwise (where \a difference_type
-    ///           is defined by \a std::iterator_traits<InIter>::difference_type.
-    ///           The \a count algorithm returns the number of elements
-    ///           satisfying the given criteria.
-    ///
-    template <typename ExPolicy, typename InIter, typename T>
-    inline typename std::enable_if<
-        is_execution_policy<ExPolicy>::value,
-        typename util::detail::algorithm_result<ExPolicy,
-            typename std::iterator_traits<InIter>::difference_type
-        >::type
-    >::type
-    count(ExPolicy && policy, InIter first, InIter last, T const& value)
-    {
-        static_assert(
-            (hpx::traits::is_input_iterator<InIter>::value),
-            "Required at least input iterator.");
-
-        typedef hpx::traits::is_segmented_iterator<InIter> is_segmented;
-
-        return detail::count_(
-            std::forward<ExPolicy>(policy), first, last, value,
-            is_segmented());
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
     // count_if
     namespace detail
     {
@@ -193,8 +40,8 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
         {
             typedef Value difference_type;
 
-            count_if()
-              : count_if::algorithm("count_if")
+            count_if(char const* const name = "count_if")
+              : count_if::algorithm(name)
             {}
 
             template <typename ExPolicy, typename Iter, typename Pred>
@@ -351,6 +198,134 @@ namespace hpx { namespace parallel { HPX_INLINE_NAMESPACE(v1)
 
         return detail::count_if_(
             std::forward<ExPolicy>(policy), first, last, std::forward<F>(f),
+            is_segmented());
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // count
+    namespace detail
+    {
+        /// \cond NOINTERNAL
+        template <typename Value>
+        struct count : public count_if<Value>
+        {
+            typedef Value difference_type;
+
+            count()
+              : count_if("count")
+            {}
+
+            template <typename ExPolicy, typename Iter, typename T>
+            static difference_type
+            sequential(ExPolicy, Iter first, Iter last, T const& value)
+            {
+                with_value<T> pred(value);
+                return count_if::sequential(first, last, pred);
+            }
+
+            template <typename ExPolicy, typename Iter, typename T>
+            static typename util::detail::algorithm_result<
+                ExPolicy, difference_type
+            >::type
+            parallel(ExPolicy && policy, Iter first, Iter last,
+                T const& value)
+            {
+                with_value<T> pred(value);
+                return count_if::parallel(
+                    std::forward<ExPolicy>(policy), first, last, pred);
+            }
+        };
+
+        template <typename ExPolicy, typename InIter, typename T>
+        inline typename util::detail::algorithm_result<
+            ExPolicy, typename std::iterator_traits<InIter>::difference_type
+        >::type
+        count_(ExPolicy && policy, InIter first, InIter last, T const& value,
+            std::false_type)
+        {
+            typedef std::integral_constant<bool,
+                    parallel::is_sequential_execution_policy<ExPolicy>::value ||
+                   !hpx::traits::is_forward_iterator<InIter>::value
+                > is_seq;
+
+            typedef typename std::iterator_traits<InIter>::difference_type
+                difference_type;
+
+            return detail::count<difference_type>().call(
+                std::forward<ExPolicy>(policy), is_seq(), first, last, value);
+        }
+
+        // forward declare the segmented version of this algorithm
+        template <typename ExPolicy, typename InIter, typename T>
+        typename util::detail::algorithm_result<
+            ExPolicy, typename std::iterator_traits<InIter>::difference_type
+        >::type
+        count_(ExPolicy&& policy, InIter first, InIter last, T const& value,
+            std::true_type);
+
+        /// \endcond
+    }
+
+    /// Returns the number of elements in the range [first, last) satisfying
+    /// a specific criteria. This version counts the elements that are equal to
+    /// the given \a value.
+    ///
+    /// \note   Complexity: Performs exactly \a last - \a first comparisons.
+    ///
+    /// \tparam ExPolicy    The type of the execution policy to use (deduced).
+    ///                     It describes the manner in which the execution
+    ///                     of the algorithm may be parallelized and the manner
+    ///                     in which it executes the comparisons.
+    /// \tparam InIter      The type of the source iterators used (deduced).
+    ///                     This iterator type must meet the requirements of an
+    ///                     input iterator.
+    /// \tparam T           The type of the value to search for (deduced).
+    ///
+    /// \param policy       The execution policy to use for the scheduling of
+    ///                     the iterations.
+    /// \param first        Refers to the beginning of the sequence of elements
+    ///                     the algorithm will be applied to.
+    /// \param last         Refers to the end of the sequence of elements the
+    ///                     algorithm will be applied to.
+    /// \param value        The value to search for.
+    ///
+    /// The comparisons in the parallel \a count algorithm invoked with
+    /// an execution policy object of type \a sequential_execution_policy
+    /// execute in sequential order in the calling thread.
+    ///
+    /// \note The comparisons in the parallel \a count algorithm invoked with
+    ///       an execution policy object of type \a parallel_execution_policy or
+    ///       \a parallel_task_execution_policy are permitted to execute in an unordered
+    ///       fashion in unspecified threads, and indeterminately sequenced
+    ///       within each thread.
+    ///
+    /// \returns  The \a count algorithm returns a
+    ///           \a hpx::future<difference_type> if the execution policy is of
+    ///           type
+    ///           \a sequential_task_execution_policy or
+    ///           \a parallel_task_execution_policy and
+    ///           returns \a difference_type otherwise (where \a difference_type
+    ///           is defined by \a std::iterator_traits<InIter>::difference_type.
+    ///           The \a count algorithm returns the number of elements
+    ///           satisfying the given criteria.
+    ///
+    template <typename ExPolicy, typename InIter, typename T>
+    inline typename std::enable_if<
+        is_execution_policy<ExPolicy>::value,
+        typename util::detail::algorithm_result<ExPolicy,
+            typename std::iterator_traits<InIter>::difference_type
+        >::type
+    >::type
+    count(ExPolicy && policy, InIter first, InIter last, T const& value)
+    {
+        static_assert(
+            (hpx::traits::is_input_iterator<InIter>::value),
+            "Required at least input iterator.");
+
+        typedef hpx::traits::is_segmented_iterator<InIter> is_segmented;
+
+        return detail::count_(
+            std::forward<ExPolicy>(policy), first, last, value,
             is_segmented());
     }
 }}}
