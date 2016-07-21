@@ -40,7 +40,6 @@
 
 #include <boost/atomic.hpp>
 #include <boost/exception_ptr.hpp>
-#include <boost/mpl/bool.hpp>
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/stringize.hpp>
 
@@ -286,13 +285,13 @@ namespace hpx { namespace actions
         }
 
         ///////////////////////////////////////////////////////////////////////
-        typedef typename traits::is_future<result_type>::type is_future_pred;
+        typedef traits::is_future<result_type> is_future_pred;
 
         struct sync_invoke
         {
             template <typename IdOrPolicy, typename ...Ts>
             HPX_FORCEINLINE static result_type call(
-                boost::mpl::false_, launch policy,
+                std::false_type, launch policy,
                 IdOrPolicy const& id_or_policy, error_code& ec, Ts&&... vs)
             {
                 return hpx::async<basic_action>(policy, id_or_policy,
@@ -301,7 +300,7 @@ namespace hpx { namespace actions
 
             template <typename IdOrPolicy, typename ...Ts>
             HPX_FORCEINLINE static result_type call(
-                boost::mpl::true_, launch policy,
+                std::true_type, launch policy,
                 IdOrPolicy const& id_or_policy, error_code& /*ec*/, Ts&&... vs)
             {
                 return hpx::async<basic_action>(policy, id_or_policy,
@@ -731,11 +730,11 @@ namespace hpx { namespace serialization
     namespace hpx { namespace traits {                                        \
         template <>                                                           \
         struct is_action<action>                                              \
-          : boost::mpl::true_                                                 \
+          : std::true_type                                                    \
         {};                                                                   \
         template <>                                                           \
         struct needs_automatic_registration<action>                           \
-          : boost::mpl::false_                                                \
+          : std::false_type                                                   \
         {};                                                                   \
     }}                                                                        \
 /**/
